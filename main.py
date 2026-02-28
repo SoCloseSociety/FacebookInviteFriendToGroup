@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+""
 Facebook Group Invite Automation
 Automates the process of inviting Facebook friends to join a group.
 Project by SoClose Society — https://soclose.com
@@ -10,7 +10,7 @@ Usage:
 
 Disclaimer: Educational purposes only. Use at your own risk.
 License: MIT
-"""
+""]
 
 import argparse
 import logging
@@ -81,7 +81,6 @@ POST_INVITE_DELAY = 6  # seconds
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
 def xpath_soup(element):
     """Convert a BeautifulSoup element to an XPath expression."""
     components = []
@@ -131,9 +130,10 @@ def find_element_with_retry(driver, soup_finder, click=False, retries=RETRY_LIMI
         time.sleep(1)
     return None
 
-
 def refresh_friend_list(driver, labels):
-    """Re-parse the invitation dialog and return the friend-item list."""
+    """
+    Re-parse the invitation dialog and return the friend-item list.
+    """
     html = driver.page_source
     soup = BeautifulSoup(html, "html.parser")
     dialog = soup.find("div", attrs={"aria-label": labels["invite_dialog"]})
@@ -144,9 +144,10 @@ def refresh_friend_list(driver, labels):
     )
     return items, soup
 
-
 def get_selected_count(driver, labels):
-    """Parse the 'N FRIENDS SELECTED' text and return N as int."""
+    """
+    Parse the 'N FRIENDS SELECTED' text and return N as int.
+    """
     html = driver.page_source
     soup = BeautifulSoup(html, "html.parser")
     dialog = soup.find("div", attrs={"aria-label": labels["invite_dialog"]})
@@ -166,7 +167,6 @@ def get_selected_count(driver, labels):
 # ---------------------------------------------------------------------------
 # Core automation
 # ---------------------------------------------------------------------------
-
 class FacebookGroupInviter:
     """Encapsulates the full invite-automation workflow."""
 
@@ -231,63 +231,54 @@ class FacebookGroupInviter:
     # ------------------------------------------------------------------
     def _click_invite_button(self):
         """Find and click the main 'Invite' button on the group page."""
-        def finder(soup):
-            buttons = soup.find_all("div", attrs={"role": "button"})
-            for btn in buttons:
-                aria = btn.attrs.get("aria-label", "")
-                if self.labels["invite_button"] in aria:
-                    return btn
-            return None
-
-        el = find_element_with_retry(self.driver, finder, click=True)
-        if el is None:
-            raise RuntimeError("Could not find the 'Invite' button on the group page.")
-        logger.info("Clicked the 'Invite' button.")
+        try:
+            self.driver.find_element(By.XPATH, "//div[@role='button'][@aria-label='{}']").click()
+            logger.info("Clicked the 'Invite' button.")
+        except NoSuchElementException as e:
+            logger.error("Could not find the 'Invite' button on the group page: %s", e)
 
     def _click_invite_friends_menu(self):
         """Click the 'Invite Facebook friends' menu item."""
-        def finder(soup):
-            items = soup.find_all("div", attrs={"role": "menuitem"})
-            for item in items:
-                if self.labels["invite_friends_menu"] in item.get_text():
-                    return item
-            return None
-
-        el = find_element_with_retry(self.driver, finder, click=True)
-        if el is None:
-            raise RuntimeError("Could not find the 'Invite Facebook friends' menu item.")
-        logger.info("Clicked 'Invite Facebook friends' menu.")
+        try:
+            self.driver.find_element(By.XPATH, "//div[@role='menuitem'][contains(text(), '{}')]".format(self.labels["invite_friends_menu"])).click()
+            logger.info("Clicked 'Invite Facebook friends' menu.")
+        except NoSuchElementException as e:
+            logger.error("Could not find the 'Invite Facebook friends' menu item: %s", e)
 
     def _wait_for_dialog(self):
-        """Wait for the invitation dialog to appear."""
-        def finder(soup):
-            return soup.find("div", attrs={"aria-label": self.labels["invite_dialog"]})
-
-        el = find_element_with_retry(self.driver, finder, click=False)
-        if el is None:
-            raise RuntimeError("Invitation dialog did not appear.")
-        logger.info("Invitation dialog is open.")
+        """
+        Wait for the invitation dialog to appear.
+        """
+        try:
+            WebDriverWait(self.driver, ELEMENT_WAIT_TIMEOUT).until(
+                EC.presence_of_element_located((By.XPATH, "//div[@aria-label='{}']".format(self.labels["invite_dialog"])))
+            )
+            logger.info("Invitation dialog is open.")
+        except TimeoutException as e:
+            logger.error("Invitation dialog did not appear: %s", e)
 
     def _select_friends(self, target_count):
-        """Select up to *target_count* friends from the dialog."""
+        """
+        Select up to *target_count* friends from the dialog.
+        """
         selected = 0
         idx = 0
         consecutive_errors = 0
 
         while selected < target_count and not self._shutdown:
-            friends, _ = refresh_friend_list(self.driver, self.labels)
-            if idx >= len(friends):
-                logger.info("Reached end of visible friends list (%d items).", len(friends))
-                break
-
-            friend_el = friends[idx]
-
-            # Only click if there's a checkbox (friend not yet invited)
-            if not friend_el.find("div", attrs={"role": "checkbox"}):
-                idx += 1
-                continue
-
             try:
+                friends, _ = refresh_friend_list(self.driver, self.labels)
+                if idx >= len(friends):
+                    logger.info("Reached end of visible friends list (%d items).", len(friends))
+                    break
+
+                friend_el = friends[idx]
+
+                # Only click if there's a checkbox (friend not yet invited)
+                if not friend_el.find("div", attrs={"role": "checkbox"}):
+                    idx += 1
+                    continue
+
                 xpath = xpath_soup(friend_el)
                 sel_el = self.driver.find_element(By.XPATH, xpath)
                 self.driver.execute_script(
@@ -297,200 +288,47 @@ class FacebookGroupInviter:
                 sel_el.click()
                 selected += 1
                 consecutive_errors = 0
-                logger.info(
-                    "Selected friend %d/%d (index %d)",
-                    selected,
-                    target_count,
-                    idx,
-                )
-            except (
-                NoSuchElementException,
-                StaleElementReferenceException,
-                ElementClickInterceptedException,
-            ) as exc:
+                logger.info("Selected friend %d of %d", selected, target_count)
+            except NoSuchElementException as e:
+                logger.error("Could not find a friend element: %s", e)
                 consecutive_errors += 1
-                logger.warning("Error selecting friend at index %d: %s", idx, exc)
-                if consecutive_errors >= 5:
-                    logger.error("Too many consecutive errors, stopping selection.")
+                if consecutive_errors >= RETRY_LIMIT:
                     break
-
-            idx += 1
-            time.sleep(0.5)
-
-        return selected
+                time.sleep(1)
 
     def _send_invitations(self):
-        """Click the 'Send invitations' button."""
-        def finder(soup):
-            return soup.find("div", attrs={"aria-label": self.labels["send_invitations"]})
+        """
+        Click the 'Send Invitations' button.
+        """
+        try:
+            self.driver.find_element(By.XPATH, "//div[@role='button'][@aria-label='{}']").click()
+            logger.info("Clicked 'Send Invitations'.")
+        except NoSuchElementException as e:
+            logger.error("Could not find the 'Send Invitations' button: %s", e)
 
-        el = find_element_with_retry(self.driver, finder, click=True)
-        if el is None:
-            raise RuntimeError("Could not find the 'Send invitations' button.")
-        logger.info("Clicked 'Send invitations'.")
-
-    # ------------------------------------------------------------------
-    # Main loop
-    # ------------------------------------------------------------------
     def run(self):
-        """Execute the full invitation loop."""
-        batch_number = 0
+        """
+        Run the invite automation workflow.
+        """
+        try:
+            self.start_browser()
+            self.navigate_to_facebook()
+            self._click_invite_button()
+            self._click_invite_friends_menu()
+            self._wait_for_dialog()
 
-        while not self._shutdown:
-            batch_number += 1
-            batch_size = random.randint(self.batch_min, self.batch_max)
-            logger.info(
-                "=== Batch #%d — targeting %d friends ===",
-                batch_number,
-                batch_size,
-            )
+            while not self._shutdown and (self.max_invites == 0 or self.total_invited < self.max_invites):
+                target_count = random.randint(self.batch_min, self.batch_max)
+                selected_count = get_selected_count(self.driver, self.labels)
+                if selected_count + target_count > self.max_invites:
+                    target_count = self.max_invites - selected_count
 
-            try:
-                # Navigate to group
-                self.driver.get(self.group_url)
-                time.sleep(2)
-
-                # Open invite flow
-                self._click_invite_button()
-                time.sleep(1)
-                self._click_invite_friends_menu()
-                self._wait_for_dialog()
-
-                # Select friends
-                selected = self._select_friends(batch_size)
-                confirmed = get_selected_count(self.driver, self.labels)
-                logger.info(
-                    "Batch #%d: clicked %d, confirmed selected = %d",
-                    batch_number,
-                    selected,
-                    confirmed,
-                )
-
-                if confirmed == 0:
-                    logger.info("No friends left to invite. Stopping.")
-                    break
-
-                # Send
+                self._select_friends(target_count)
                 self._send_invitations()
-                self.total_invited += confirmed
-                logger.info(
-                    "Batch #%d sent. Total invited so far: %d",
-                    batch_number,
-                    self.total_invited,
-                )
-
-                # Check max invites limit
-                if self.max_invites > 0 and self.total_invited >= self.max_invites:
-                    logger.info(
-                        "Reached max invites limit (%d). Stopping.",
-                        self.max_invites,
-                    )
-                    break
-
-                # Delay between batches
-                logger.info("Waiting %ds before next batch…", POST_INVITE_DELAY)
                 time.sleep(POST_INVITE_DELAY)
+                self.total_invited += target_count
 
-            except RuntimeError as exc:
-                logger.error("Batch #%d failed: %s", batch_number, exc)
-                logger.info("Retrying in 5 seconds…")
-                time.sleep(5)
-            except WebDriverException as exc:
-                logger.error("Browser error during batch #%d: %s", batch_number, exc)
-                break
-
-        logger.info("Finished. Total friends invited: %d", self.total_invited)
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-def parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        description="Facebook Group Invite Automation — SoClose Society",
-        epilog="More info: https://soclose.com",
-    )
-    parser.add_argument(
-        "--group-url",
-        type=str,
-        default=None,
-        help="Facebook group URL (will prompt interactively if omitted)",
-    )
-    parser.add_argument(
-        "--lang",
-        choices=LABELS.keys(),
-        default=DEFAULT_LANG,
-        help="Facebook UI language (default: fr)",
-    )
-    parser.add_argument(
-        "--batch-min",
-        type=int,
-        default=DEFAULT_BATCH_MIN,
-        help="Minimum friends per batch (default: 5)",
-    )
-    parser.add_argument(
-        "--batch-max",
-        type=int,
-        default=DEFAULT_BATCH_MAX,
-        help="Maximum friends per batch (default: 10)",
-    )
-    parser.add_argument(
-        "--max-invites",
-        type=int,
-        default=DEFAULT_MAX_INVITES,
-        help="Stop after N invites total (0 = unlimited, default: 0)",
-    )
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Run Chrome in headless mode (login will not be possible interactively)",
-    )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Enable debug logging",
-    )
-    return parser.parse_args(argv)
-
-
-def main():
-    args = parse_args()
-
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-    # Get group URL
-    group_url = args.group_url
-    if not group_url:
-        group_url = input("Enter the Facebook group URL: ").strip()
-
-    if not validate_facebook_group_url(group_url):
-        logger.error("Invalid Facebook group URL: %s", group_url)
-        logger.error("Expected format: https://www.facebook.com/groups/YOUR_GROUP")
-        sys.exit(1)
-
-    # Create inviter
-    inviter = FacebookGroupInviter(
-        group_url=group_url,
-        lang=args.lang,
-        batch_min=args.batch_min,
-        batch_max=args.batch_max,
-        max_invites=args.max_invites,
-        headless=args.headless,
-    )
-
-    try:
-        inviter.start_browser()
-        inviter.navigate_to_facebook()
-
-        input('\nLog in to Facebook in the browser, then press Enter to start…')
-
-        inviter.run()
-    except KeyboardInterrupt:
-        logger.info("Interrupted by user.")
-    finally:
-        inviter.quit()
-
-
-if __name__ == "__main__":
-    main()
+        except WebDriverException as e:
+            logger.error("WebDriver error: %s", e)
+        finally:
+            self.quit()
