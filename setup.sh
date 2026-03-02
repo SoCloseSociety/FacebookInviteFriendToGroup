@@ -33,6 +33,11 @@ source venv/bin/activate
 # Install dependencies
 echo "Installing dependencies…"
 pip install --upgrade pip -q
+deprecated_package=$(pip list | grep 'deprecated-package' | awk '{print $1}')
+if [ ! -z "$deprecated_package" ]; then
+    echo "Removing deprecated package: $deprecated_package"
+    pip uninstall -y $deprecated_package
+fi
 pip install -r requirements.txt -q
 echo "Dependencies installed."
 
