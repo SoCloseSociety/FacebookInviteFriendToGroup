@@ -196,41 +196,50 @@ class FacebookGroupInviter:
     # Browser setup
     # ------------------------------------------------------------------
     def start_browser(self):
-        """Initialize Chrome WebDriver."""
-        options = webdriver.ChromeOptions()
-        options.add_experimental_option("excludeSwitches", ["enable-logging"])
-        options.add_argument("--disable-notifications")
-        if self.headless:
-            options.add_argument("--headless=new")
+        """Initialize Chrome WebDriver with error handling."""
+        try:
+            options = webdriver.ChromeOptions()
+            options.add_experimental_option("excludeSwitches", ["enable-logging"])
+            options.add_argument("--disable-notifications")
+            if self.headless:
+                options.add_argument("--headless=new")
 
-        if ChromeDriverManager is not None:
-            service = Service(ChromeDriverManager().install())
-        else:
-            service = Service()
+            if ChromeDriverManager is not None:
+                service = Service(ChromeDriverManager().install())
+            else:
+                service = Service()
 
-        self.driver = webdriver.Chrome(service=service, options=options)
-        self.driver.maximize_window()
-        logger.info("Browser started.")
+            self.driver = webdriver.Chrome(service=service, options=options)
+            self.driver.maximize_window()
+            logger.info("Browser started.")
+        except WebDriverException as e:
+            logger.error(f"Failed to start browser: {e}")
+            raise
 
     def navigate_to_facebook(self):
-        """Open Facebook so the user can log in."""
-        self.driver.get("https://www.facebook.com/")
-        logger.info("Navigated to Facebook. Please log in manually in the browser.")
+        """Open Facebook with error handling."""
+        try:
+            self.driver.get("https://www.facebook.com/")
+            logger.info("Navigated to Facebook. Please log in manually in the browser.")
+        except WebDriverException as e:
+            logger.error(f"Failed to navigate to Facebook: {e}")
+            raise
 
     def quit(self):
-        """Close the browser cleanly."""
+        """Close the browser cleanly with error handling."""
         if self.driver:
             try:
                 self.driver.quit()
-            except WebDriverException:
-                pass
-            logger.info("Browser closed.")
+            except WebDriverException as e:
+                logger.error(f"Failed to close browser: {e}")
+            finally:
+                logger.info("Browser closed.")
 
     # ------------------------------------------------------------------
     # Invite workflow
     # ------------------------------------------------------------------
     def _click_invite_button(self):
-        """Find and click the main 'Invite' button on the group page."""
+        """Find and click the main 'Invite' button on the group page with error handling."""
         def finder(soup):
             buttons = soup.find_all("div", attrs={"role": "button"})
             for btn in buttons:
@@ -239,13 +248,17 @@ class FacebookGroupInviter:
                     return btn
             return None
 
-        el = find_element_with_retry(self.driver, finder, click=True)
-        if el is None:
-            raise RuntimeError("Could not find the 'Invite' button on the group page.")
-        logger.info("Clicked the 'Invite' button.")
+        try:
+            el = find_element_with_retry(self.driver, finder, click=True)
+            if el is None:
+                raise RuntimeError("Could not find the 'Invite' button on the group page.")
+            logger.info("Clicked the 'Invite' button.")
+        except WebDriverException as e:
+            logger.error(f"Failed to click invite button: {e}")
+            raise
 
     def _click_invite_friends_menu(self):
-        """Click the 'Invite Facebook friends' menu item."""
+        """Click the 'Invite Facebook friends' menu item with error handling."""
         def finder(soup):
             items = soup.find_all("div", attrs={"role": "menuitem"})
             for item in items:
@@ -253,20 +266,28 @@ class FacebookGroupInviter:
                     return item
             return None
 
-        el = find_element_with_retry(self.driver, finder, click=True)
-        if el is None:
-            raise RuntimeError("Could not find the 'Invite Facebook friends' menu item.")
-        logger.info("Clicked 'Invite Facebook friends' menu.")
+        try:
+            el = find_element_with_retry(self.driver, finder, click=True)
+            if el is None:
+                raise RuntimeError("Could not find the 'Invite Facebook friends' menu item.")
+            logger.info("Clicked 'Invite Facebook friends' menu.")
+        except WebDriverException as e:
+            logger.error(f"Failed to click invite friends menu: {e}")
+            raise
 
     def _wait_for_dialog(self):
-        """Wait for the invitation dialog to appear."""
+        """Wait for the invitation dialog to appear with error handling."""
         def finder(soup):
             return soup.find("div", attrs={"aria-label": self.labels["invite_dialog"]})
 
-        el = find_element_with_retry(self.driver, finder, click=False)
-        if el is None:
-            raise RuntimeError("Invitation dialog did not appear.")
-        logger.info("Invitation dialog is open.")
+        try:
+            el = find_element_with_retry(self.driver, finder, click=False)
+            if el is None:
+                raise RuntimeError("Invitation dialog did not appear.")
+            logger.info("Invitation dialog is open.")
+        except WebDriverException as e:
+            logger.error(f"Failed to wait for invitation dialog: {e}")
+            raise
 
     def _select_friends(self, target_count):
         """Select up to *target_count* friends from the dialog."""
