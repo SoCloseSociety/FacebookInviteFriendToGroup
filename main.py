@@ -103,6 +103,12 @@ def validate_facebook_group_url(url: str) -> bool:
     pattern = r"^https?://(www\.|m\.)?facebook\.com/groups/.+"
     return bool(re.match(pattern, url))
 
+def sanitize_group_url(url: str) -> str:
+    """Sanitize the group URL by removing any unwanted characters."""
+    allowed_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_/.'
+    sanitized_url = ''.join(char for char in url if char in allowed_chars)
+    return sanitized_url
+
 
 def find_element_with_retry(driver, soup_finder, click=False, retries=RETRY_LIMIT):
     """
