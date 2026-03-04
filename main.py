@@ -286,7 +286,9 @@ class FacebookGroupInviter:
             if not friend_el.find("div", attrs={"role": "checkbox"}):
                 idx += 1
                 continue
-
+            # Sort friends by activity level (example heuristic)
+            friend_activity = get_friend_activity(friend_el)
+            friends.sort(key=lambda x: get_friend_activity(x), reverse=True)
             try:
                 xpath = xpath_soup(friend_el)
                 sel_el = self.driver.find_element(By.XPATH, xpath)
