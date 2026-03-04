@@ -20,6 +20,10 @@ import signal
 import sys
 import time
 import random
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -70,13 +74,13 @@ LABELS = {
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-DEFAULT_LANG = "fr"
-DEFAULT_BATCH_MIN = 5
-DEFAULT_BATCH_MAX = 10
-DEFAULT_MAX_INVITES = 0  # 0 = unlimited
-RETRY_LIMIT = 10
-ELEMENT_WAIT_TIMEOUT = 15  # seconds
-POST_INVITE_DELAY = 6  # seconds
+DEFAULT_LANG = os.getenv('DEFAULT_LANG', 'fr')
+DEFAULT_BATCH_MIN = int(os.getenv('DEFAULT_BATCH_MIN', '5'))
+DEFAULT_BATCH_MAX = int(os.getenv('DEFAULT_BATCH_MAX', '10'))
+DEFAULT_MAX_INVITES = int(os.getenv('DEFAULT_MAX_INVITES', '0'))  # 0 = unlimited
+RETRY_LIMIT = int(os.getenv('RETRY_LIMIT', '10'))
+ELEMENT_WAIT_TIMEOUT = int(os.getenv('ELEMENT_WAIT_TIMEOUT', '15'))  # seconds
+POST_INVITE_DELAY = int(os.getenv('POST_INVITE_DELAY', '6'))  # seconds
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -100,7 +104,7 @@ def xpath_soup(element):
 
 def validate_facebook_group_url(url: str) -> bool:
     """Return True if *url* looks like a valid Facebook group URL."""
-    pattern = r"^https?://(www\.|m\.)?facebook\.com/groups/.+"
+    pattern = os.getenv('FACEBOOK_GROUP_URL_PATTERN', r'^https?://(www\.|m\.)?facebook\.com/groups/.+')
     return bool(re.match(pattern, url))
 
 
