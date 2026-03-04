@@ -103,12 +103,6 @@ def validate_facebook_group_url(url: str) -> bool:
     pattern = r"^https?://(www\.|m\.)?facebook\.com/groups/.+"
     return bool(re.match(pattern, url))
 
-def sanitize_group_url(url: str) -> str:
-    """Sanitize the group URL by removing any unwanted characters."""
-    allowed_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_/.'
-    sanitized_url = ''.join(char for char in url if char in allowed_chars)
-    return sanitized_url
-
 
 def find_element_with_retry(driver, soup_finder, click=False, retries=RETRY_LIMIT):
     """
@@ -179,7 +173,7 @@ class FacebookGroupInviter:
     def __init__(self, group_url, lang=DEFAULT_LANG, batch_min=DEFAULT_BATCH_MIN,
                  batch_max=DEFAULT_BATCH_MAX, max_invites=DEFAULT_MAX_INVITES,
                  headless=False):
-        self.group_url = group_url
+        self.group_url = sanitize_group_url(group_url)
         self.lang = lang
         self.labels = LABELS[lang]
         self.batch_min = batch_min
