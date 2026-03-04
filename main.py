@@ -173,7 +173,7 @@ class FacebookGroupInviter:
     def __init__(self, group_url, lang=DEFAULT_LANG, batch_min=DEFAULT_BATCH_MIN,
                  batch_max=DEFAULT_BATCH_MAX, max_invites=DEFAULT_MAX_INVITES,
                  headless=False):
-        self.group_url = group_url
+        self.group_url = sanitize_group_url(group_url)
         self.lang = lang
         self.labels = LABELS[lang]
         self.batch_min = batch_min
