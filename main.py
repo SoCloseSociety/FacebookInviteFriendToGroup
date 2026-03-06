@@ -275,9 +275,9 @@ class FacebookGroupInviter:
         consecutive_errors = 0
 
         while selected < target_count and not self._shutdown:
-            friends, _ = refresh_friend_list(self.driver, self.labels)
-            if idx >= len(friends):
-                logger.info("Reached end of visible friends list (%d items).", len(friends))
+            friend_elements = self.driver.find_elements(By.XPATH, '//div[@role="menuitem" and @aria-label="Invite Facebook friends"]')
+            if idx >= len(friend_elements):
+                logger.info("Reached end of visible friends list (%d items).", len(friend_elements))
                 break
 
             friend_el = friends[idx]
